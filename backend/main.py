@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from db import get_connection
 from models import SecurityEvent
+from detection import check_brute_force
 
 app = FastAPI()
 
@@ -52,6 +53,7 @@ def create_event(event: SecurityEvent):
 
     cursor.execute(query, values)
     conn.commit()
+    check_brute_force(event.ip_address)
 
     cursor.close()
     conn.close()
