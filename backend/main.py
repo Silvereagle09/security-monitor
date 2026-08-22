@@ -1,3 +1,4 @@
+print("MAIN.PY LOADED")
 from fastapi import FastAPI
 from db import get_connection
 from models import SecurityEvent
@@ -53,6 +54,7 @@ def create_event(event: SecurityEvent):
 
     cursor.execute(query, values)
     conn.commit()
+    print("Calling detection...")
     check_brute_force(event.ip_address)
 
     cursor.close()
@@ -61,3 +63,21 @@ def create_event(event: SecurityEvent):
     return {
         "message": "Event stored successfully"
     }
+    
+@app.get("/alerts")
+def get_alerts():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM alerts
+        ORDER BY created_at DESC
+    """)
+
+    alerts = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return alerts
