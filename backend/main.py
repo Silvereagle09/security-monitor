@@ -3,8 +3,17 @@ from fastapi import FastAPI
 from db import get_connection
 from models import SecurityEvent
 from detection import check_brute_force
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def home():
@@ -81,3 +90,50 @@ def get_alerts():
     conn.close()
 
     return alerts
+
+@app.get("/events")
+def get_events():
+
+    conn = get_connection()
+
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM events
+        ORDER BY timestamp DESC
+    """)
+
+    events = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return events
+
+@app.get("/stats")
+def get_stats():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM events")
+    total_events = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM alerts")
+    total_alerts = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM alerts
+        WHERE severity = 'HIGH'
+    """)
+    high_alerts = cursor.fetchone()[0]
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "total_events": total_events,
+        "total_alerts": total_alerts,
+        "high_severity_alerts": high_alerts
+    }
