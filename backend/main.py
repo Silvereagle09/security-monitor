@@ -4,6 +4,9 @@ from db import get_connection
 from models import SecurityEvent
 from detection import check_brute_force
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, UploadFile, File
+import csv
+import io
 
 app = FastAPI()
 
@@ -136,4 +139,51 @@ def get_stats():
         "total_events": total_events,
         "total_alerts": total_alerts,
         "high_severity_alerts": high_alerts
+    }
+    
+@app.post("/upload-log")
+async def upload_log(file: UploadFile = File(...)):
+
+    contents = await file.read()
+    text = contents.decode("utf-8")
+
+    csv_file = io.StringIO(text)
+    reader = csv.DictReader(csv_file)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+    INSERT INTO events
+    (timestamp, event_type, username, ip_address)
+    VALUES (%s, %s, %s, %s)
+    """
+
+    rows_inserted = 0
+
+    for row in reader:
+
+        values = (
+            row["timestamp"],
+            row["event_type"],
+            row["username"],
+            row["ip_address"]
+        )
+
+        cursor.execute(query, values)
+
+        rows_inserted += 1
+        check_brute_force(row["ip_address"])
+
+        rows_inserted += 1
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "filename": file.filename,
+        "rows_inserted": rows_inserted,
+        "message": "File imported successfully"
     }
