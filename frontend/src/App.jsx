@@ -4,6 +4,8 @@ import StatsCard from "./components/StatsCard";
 import API from "./services/api";
 import AlertsTable from "./components/AlertsTable";
 import EventHistory from "./components/EventHistory";
+import EventTypeChart from "./components/EventTypeChart";
+import LogUpload from "./components/LogUpload";
 
 function App() {
   const [stats, setStats] = useState({
@@ -11,10 +13,13 @@ function App() {
     total_alerts: 0,
     high_severity_alerts: 0,
   });
+
+  const [eventTypes, setEventTypes] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [events, setEvents] = useState([]);
 
   const fetchData = () => {
+    // Stats
     API.get("/stats")
       .then((response) => {
         setStats(response.data);
@@ -23,6 +28,7 @@ function App() {
         console.error(error);
       });
 
+    // Alerts
     API.get("/alerts")
       .then((response) => {
         setAlerts(response.data);
@@ -31,6 +37,7 @@ function App() {
         console.error(error);
       });
 
+    // Events
     API.get("/events")
       .then((response) => {
         setEvents(response.data);
@@ -39,7 +46,16 @@ function App() {
         console.error(error);
       });
 
+    // Event Type Counts (for chart)
+    API.get("/event-types")
+      .then((response) => {
+        setEventTypes(response.data);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   };
+
   useEffect(() => {
     fetchData();
 
@@ -50,13 +66,16 @@ function App() {
     return () => {
       clearInterval(interval);
     };
-
   }, []);
+
+  console.log("Event Types:", eventTypes);
 
   return (
     <div className="dashboard">
       <h1>Security Monitor Dashboard</h1>
 
+      <LogUpload onUploadSuccess={fetchData} />
+      
       <div className="cards">
         <StatsCard
           title="Total Events"
@@ -74,7 +93,10 @@ function App() {
         />
       </div>
 
+      <EventTypeChart data={eventTypes} />
+
       <AlertsTable alerts={alerts} />
+
       <EventHistory events={events} />
     </div>
   );

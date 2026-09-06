@@ -1,5 +1,24 @@
 from db import get_connection
 
+def alert_exists(ip_address, alert_type):
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM alerts
+        WHERE ip_address = %s
+        AND alert_type = %s
+    """, (ip_address, alert_type))
+
+    exists = cursor.fetchone()[0] > 0
+
+    cursor.close()
+    conn.close()
+
+    return exists
+
 def check_brute_force(ip_address):
     conn = get_connection()
     cursor = conn.cursor()
@@ -10,9 +29,6 @@ def check_brute_force(ip_address):
     WHERE ip_address = %s
     AND event_type = 'LOGIN_FAILED'
     """
-
-    cursor.execute(query, (ip_address,))
-    count = cursor.fetchone()[0]
 
     cursor.execute(query, (ip_address,))
     count = cursor.fetchone()[0]
@@ -52,6 +68,72 @@ def check_brute_force(ip_address):
         conn.commit()
 
         print("ALERT INSERTED")
+
+    cursor.close()
+    conn.close()
+    
+def check_password_spraying(ip_address):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(DISTINCT username)
+        FROM events
+        WHERE ip_address = %s
+        AND event_type = 'LOGIN_FAILED'
+    """, (ip_address,))
+
+    user_count = cursor.fetchone()[0]
+
+    if user_count >= 3 and not alert_exists(ip_address, "PASSWORD_SPRAYING"):
+
+        cursor.execute("""
+            INSERT INTO alerts
+            (ip_address, alert_type, severity)
+            VALUES (%s, %s, %s)
+        """, (
+            ip_address,
+            "PASSWORD_SPRAYING",
+            "HIGH"
+        ))
+
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+    
+def check_suspicious_ip_activity(ip_address):
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(DISTINCT event_type)
+        FROM events
+        WHERE ip_address = %s
+    """, (ip_address,))
+
+    event_count = cursor.fetchone()[0]
+
+    if (
+        event_count >= 4
+        and not alert_exists(
+            ip_address,
+            "SUSPICIOUS_IP_ACTIVITY"
+        )
+    ):
+
+        cursor.execute("""
+            INSERT INTO alerts
+            (ip_address, alert_type, severity)
+            VALUES (%s, %s, %s)
+        """, (
+            ip_address,
+            "SUSPICIOUS_IP_ACTIVITY",
+            "HIGH"
+        ))
+
+        conn.commit()
 
     cursor.close()
     conn.close()

@@ -2,7 +2,11 @@ print("MAIN.PY LOADED")
 from fastapi import FastAPI
 from db import get_connection
 from models import SecurityEvent
-from detection import check_brute_force
+from detection import (
+    check_brute_force,
+    check_password_spraying,
+    check_suspicious_ip_activity
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
 import csv
@@ -68,6 +72,8 @@ def create_event(event: SecurityEvent):
     conn.commit()
     print("Calling detection...")
     check_brute_force(event.ip_address)
+    check_password_spraying(event.ip_address)
+    check_suspicious_ip_activity(event.ip_address)
 
     cursor.close()
     conn.close()
@@ -160,6 +166,7 @@ async def upload_log(file: UploadFile = File(...)):
     """
 
     rows_inserted = 0
+    uploaded_ips = set()
 
     for row in reader:
 
@@ -172,12 +179,16 @@ async def upload_log(file: UploadFile = File(...)):
 
         cursor.execute(query, values)
 
-        rows_inserted += 1
-        check_brute_force(row["ip_address"])
+        uploaded_ips.add(row["ip_address"])
 
         rows_inserted += 1
 
     conn.commit()
+
+    for ip in uploaded_ips:
+        check_brute_force(ip)
+        check_password_spraying(ip)
+        check_suspicious_ip_activity(ip)
 
     cursor.close()
     conn.close()
@@ -187,3 +198,23 @@ async def upload_log(file: UploadFile = File(...)):
         "rows_inserted": rows_inserted,
         "message": "File imported successfully"
     }
+    
+    
+@app.get("/event-types")
+def get_event_types():
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT event_type, COUNT(*) as count
+        FROM events
+        GROUP BY event_type
+    """)
+
+    data = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return data
