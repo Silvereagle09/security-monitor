@@ -137,3 +137,8 @@ def check_suspicious_ip_activity(ip_address):
 
     cursor.close()
     conn.close()
+    
+def run_all_detections(ip_address):
+    check_brute_force(ip_address)
+    check_password_spraying(ip_address)
+    check_suspicious_ip_activity(ip_address)

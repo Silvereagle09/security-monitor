@@ -2,11 +2,7 @@ print("MAIN.PY LOADED")
 from fastapi import FastAPI
 from db import get_connection
 from models import SecurityEvent
-from detection import (
-    check_brute_force,
-    check_password_spraying,
-    check_suspicious_ip_activity
-)
+from detection import run_all_detections
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
 import csv
@@ -71,9 +67,7 @@ def create_event(event: SecurityEvent):
     cursor.execute(query, values)
     conn.commit()
     print("Calling detection...")
-    check_brute_force(event.ip_address)
-    check_password_spraying(event.ip_address)
-    check_suspicious_ip_activity(event.ip_address)
+    run_all_detections(event.ip_address)
 
     cursor.close()
     conn.close()
@@ -186,9 +180,7 @@ async def upload_log(file: UploadFile = File(...)):
     conn.commit()
 
     for ip in uploaded_ips:
-        check_brute_force(ip)
-        check_password_spraying(ip)
-        check_suspicious_ip_activity(ip)
+        run_all_detections(ip);
 
     cursor.close()
     conn.close()
