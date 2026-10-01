@@ -53,21 +53,26 @@ def create_event(event: SecurityEvent):
 
     query = """
     INSERT INTO events
-    (timestamp, event_type, username, ip_address)
-    VALUES (%s, %s, %s, %s)
+    (timestamp, event_type, username, ip_address, port)
+    VALUES (%s, %s, %s, %s, %s)
     """
 
     values = (
         event.timestamp,
         event.event_type,
         event.username,
-        event.ip_address
+        event.ip_address,
+        event.port
     )
 
     cursor.execute(query, values)
     conn.commit()
     print("Calling detection...")
-    run_all_detections(event.ip_address)
+    run_all_detections(
+        event.ip_address,               
+        event.username,
+        event.event_type
+    )
 
     cursor.close()
     conn.close()
